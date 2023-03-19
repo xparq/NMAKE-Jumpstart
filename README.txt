@@ -1,12 +1,15 @@
 NOTES:
 
 * Due to NMAKE's inability to handle arbitrary subdirs flexibly in the 
-  sources/targets tree (namely, in inference rules), recursive dir traversal
-  is delegated to shell commands (e.g. in a wrapper script) instead.
+  source/target tree (namely, in inference rules), recursive dir traversal
+  is delegated to shell commands (e.g. in a wrapper script, or a driver rule)
+  instead.
 
   (While NMAKE can execute shell commands during preproc. time to gather
   files or subdirs recursively anywhere, the problem is that the results
-  of those commands can't be assigned to macros.)
+  of those commands can't be assigned to macros. !INCLUDE files could be
+  created on-the-fly during preprocessing time, but that feels like an
+  even more cumbersome and/or brittle approach than the one chosen here.)
 
 * To avoid having to name the taget modules one by one, the only sane way
   to enumerate them (with most make tools) is
@@ -45,9 +48,8 @@ NOTES:
   corner cases etc.), so this is easier said than done -- but at least
   it _can_ be done, eventually.)
 
-
--------------------------------
-OBSOLETE NOTES TO MYSELF:
+------------------------------------------------------------------------------
+TMP. NOTES TO MYSELF:
 
 To avoid the issue when a given source type -- used as a wildcard dependency
 -- doesn't exist in the given source dir, this hackey won't work, because they
@@ -67,3 +69,6 @@ $(src_dir)/$(units_pattern).ixx:
 To mitigate the stupid "can't build unmatched wildcard" error, the combined
 `objs: c*` rule can (coincidentally...) cover in one rule the cases, where
 _at least some_ .c* source exists in the given dir...
+
+------------------------------------------------------------------------------
+The wildcard-recursion trick: https://stackoverflow.com/a/65223598/1479945
