@@ -51,6 +51,11 @@ NOTES:
 ------------------------------------------------------------------------------
 TMP. NOTES TO MYSELF:
 
+#!!Would fail with fatal error U1037 dunno how to make *.ixx, if they don't happen to exist!
+#!!objs:: $(src_dir)/$(units_pattern).ixx
+#!!	@$(MAKE) -nologo RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,$(**:.ixx=.ifc))
+
+
 To avoid the issue when a given source type -- used as a wildcard dependency
 -- doesn't exist in the given source dir, this hackey won't work, because they
 will catch all the _existing_ cases, too:
