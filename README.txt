@@ -1,9 +1,32 @@
-NOTES:
+WARNING: Still in early development! (Just passed the "early proto for 
+building the entirely void toy test sources" stage...)
+
+It aims to have the following features, though:
+
+- [x] Single-file drop-in build to kickstart simple C/C++ projects
+- [.] Flexible and scaleable enough to allow reasonable growth without
+      worrying about a real build sytem
+- [.] Familiar config macros, with ready-to-use defaults for simple setups
+- [ ] Basic facilities to configure external deps. (libs)
+- [x] Doesn't require external deps. itself (beyond MSVC + Windows)
+- [x] Handle src. subdirs transparently (something NMAKE hates to do...)
+- [x] Build a lib from the sources
+- [ ] Build (one more more, e.g. test) executables, too
+- [x] DEBUG/RELEASE builds
+- [.] Static/DLL builds
+- [ ] Separate target trees for incompatible build options
+- [ ] Support for C++ modules
+- [ ] Header-autodependency tracking
+- [ ] Auto-detect changes in the build command line or in env. vars
+      to trigger full rebuild
+
+
+DEV. NOTES:
 
 * Due to NMAKE's inability to handle arbitrary subdirs flexibly in the 
   source/target tree (namely, in inference rules), recursive dir traversal
-  is delegated to shell commands (e.g. in a wrapper script, or a driver rule)
-  instead.
+  has to be delegated to shell commands (e.g. in a wrapper script, or a
+  driver rule) instead.
 
   (While NMAKE can execute shell commands during preproc. time to gather
   files or subdirs recursively anywhere, the problem is that the results
@@ -20,60 +43,35 @@ NOTES:
     2. and map those source names to their matching target name pairs
        using inference rules to compile them.
 
-  However, due to another inability of NMAKE, i.e. that it can only match
+  However, due to two other inabilities of NMAKE, i.e. that a) it can't do
+  pattern-matching for paths in inference rules, and b) it can only match
   wildcards on dependency lines -- which is too late for using the results
   as target lists in other rules --, a recursion trick is used, as described 
-  below. (Note: GNU make has macro facilities to discover paths with wildcards
-  during preprocessing time *and* set them as macro values, so such target
-  lists matching the source layout can be assembled easily.)
+  below. (Idea from: https://stackoverflow.com/a/65223598/1479945)
+  (Note: GNU make does support path patterns in inference rules, and also
+  has macro facilities to manipulate paths with wildcards during preproc.
+  time (*and* lets you set the results as macro values), which makes
+  handling filesystem trees practically trivial there.)
 
-  With NMAKE, where wildcard-expansion can only propagate from dependency
-  lines to command blocks, there's one more line, where the results of
-  wildcard-matching can still make it to rule definitions, as targets:
-  the make command-line itself!
+  With NMAKE, where wildcard-expansion results can only propagate from
+  dependency lines downward to command blocks, there's one more "secret"
+  place, where those wildcard-matching results can still make their way
+  to rule definitions, as targets: the make command-line itself.
 
-  So, we can call NMAKE again, now with the expanded target file list,
-  and let it then find the rules to build them!
+  So, we can call NMAKE again, now with the expanded target list, and
+  let it then find the matching rules to build them.
 
   Well, almost... Because of its crippled path matching in inference rules,
-  we also have to pass it the current subdir, so that it can use it in those
-  rules... This means that we must process the source tree dir-by-dir; can't
-  just grab all the sources, translate them to target names, and pass that
-  entire list to a new make subprocess in one go... Which then also means
-  that every dir will need a new NMAKE process. (Well, at least it's not a
-  recursive NMAKE proces tree (which should definitely be avoided).)
+  we also have to pass the current subdir to it explicitly, so it can
+  use that in those rules. This also means that we must process the source
+  tree dir-by-dir -- can't just grab all the sources, `patsubst` them
+  to corresponding target names, and pass the whole list to a new make
+  subprocess in one go... (So, every dir will need a new child NMAKE
+  process. Well, at least it's not a recursive NMAKE proces tree.)
 
-  (Of course, the abomination NMAKE is, even this will entail a lot of
-  convoluted workarounds (to perform basic string conversions, or cover
-  corner cases etc.), so this is easier said than done -- but at least
-  it _can_ be done, eventually.)
-
-------------------------------------------------------------------------------
-TMP. NOTES TO MYSELF:
-
-#!!Would fail with fatal error U1037 dunno how to make *.ixx, if they don't happen to exist!
-#!!objs:: $(src_dir)/$(units_pattern).ixx
-#!!	@$(MAKE) -nologo RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,$(**:.ixx=.ifc))
-
-
-To avoid the issue when a given source type -- used as a wildcard dependency
--- doesn't exist in the given source dir, this hackey won't work, because they
-will catch all the _existing_ cases, too:
-
-$(src_dir)/$(units_pattern).cpp:
-#!! Well, no `%|eF` either: it "requires a dependent"! ;)
-	@echo Bu! Silencing the "Dunno how to make *.cpp" error, when no such file exists.
-$(src_dir)/$(units_pattern).cxx:
-	@echo Bu! Silencing the "Dunno how to make *.cxx" error, when no such file exists.
-$(src_dir)/$(units_pattern).c:
-	@echo Bu! Silencing the "Dunno how to make *.c" error, when no no such file exists.
-$(src_dir)/$(units_pattern).ixx:
-	@echo Bu! Silencing the "Dunno how to make *.ixx" error, when no no such file exists.
-
-
-To mitigate the stupid "can't build unmatched wildcard" error, the combined
-`objs: c*` rule can (coincidentally...) cover in one rule the cases, where
-_at least some_ .c* source exists in the given dir...
-
-------------------------------------------------------------------------------
-The wildcard-recursion trick: https://stackoverflow.com/a/65223598/1479945
+  (Of course, with the abomination NMAKE is, even this will entail a lot
+  of convoluted workarounds, so this is easier said than done -- but at
+  least it _can_ be done, eventually.
+  What's still a long way away, though, is header autodependecy tracking.
+  GCC is, again, way ahead of MSVC in this regard, unfortunately. I.e. the
+  `CL -showIncludes` option is a bad joke.)
