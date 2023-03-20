@@ -10,8 +10,9 @@ THIS_MAKEFILE=Makefile
 #-----------------------------------------------------------------------------
 # Project config. Edit as needed!
 #-----------------------------------------------------------------------------
-name=example
-lib=$(lib_dir)/$(name)$(lib_debug_suffix).lib
+PRJ_NAME=example
+main_lib=$(lib_dir)/$(PRJ_NAME)$(lib_debug_suffix).lib
+main_exe=$(exe_dir)/$(PRJ_NAME)$(lib_debug_suffix).exe
 
 src_dir=src
 out_dir=out
@@ -20,14 +21,18 @@ exe_dir=$(out_dir)
 obj_dir=$(out_dir)/obj
 cxx_mod_ifc_dir=$(out_dir)/mod
 
-# Defaults:
+# Options:
 DEBUG=0
 LINKMODE=static
-units_pattern = *
-
+units_pattern=*
 CFLAGS=-W4
 CXXFLAGS=-EHsc -std:c++latest
 # Note: C++ compilation would use $(CFLAGS), too.
+
+# External dependencies:
+ext_include_path=
+ext_lib_path=
+ext_libs=
 
 #=============================================================================
 #                     NO EDITS NEEDED BELOW, NORMALLY...
@@ -43,7 +48,7 @@ node=main
 !else
 node=$(DIR)
 !endif
-!message Processing: "$(node)"...
+!message Compiling: "$(node)"...
 !endif
 
 # Adjust these for the current subdir-recursion:
@@ -136,13 +141,13 @@ traverse_src_tree::
 <<
 
 #-----------------------------------------------------------------------------
-# Other task-target rules...
+# Other task-rules...
 #-----------------------------------------------------------------------------
 start: mk_main_target_dirs
 
 compiling: mk_obj_dirs objs
 
-finish: lib
+finish: default_lib default_exe
 
 mk_main_target_dirs:
 # Pre-create the output dirs, as MSVC can't be bothered:
@@ -153,7 +158,12 @@ mk_obj_dirs:
 # These vary for each subdir, so can't be done just once at init:
 	@if not exist "$(obj_dir)" md "$(obj_dir)"
 
-lib: 
+objs: $(src_dir)/$(units_pattern).c*
+# Do the .c after all the other patterns that could also match ".c*"!:
+	@$(MAKE_CMD) RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,\
+		$(subst .c,.obj,$(subst .cxx,.obj,$(subst .cpp,.obj,$**))))
+
+default_lib:
 	@echo Creating lib...
 	@cmd /v:on /c <<mklib.cmd
 	@echo off
@@ -162,13 +172,21 @@ lib:
 		set _o_=!_o_:%CD%\=!
 		set objlist=!objlist! !_o_!
 	)
-	lib -nologo -out:$(lib) !objlist!
+	lib -nologo -out:$(main_lib) !objlist!
 <<
 
-objs: $(src_dir)/$(units_pattern).c*
-# Do the .c after all the other patterns that could also match ".c*"!:
-	@$(MAKE_CMD) RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,\
-		$(subst .c,.obj,$(subst .cxx,.obj,$(subst .cpp,.obj,$**))))
+default_exe: $(main_exe)
+
+#=============================================================================
+# Actual build rules for targets in the task-rules...
+#=============================================================================
+
+#-----------------------------------------------------------------------------
+# Build the "main executable"
+#-----------------------------------------------------------------------------
+$(main_exe): $(out_dir)/obj/main.obj $(main_lib)
+	@echo Creating executable: $(main_exe)...
+	link $(LINKFLAGS) $(ext_libs) $** -out:$@
 
 #-----------------------------------------------------------------------------
 # Inference rules for .obj compilation...

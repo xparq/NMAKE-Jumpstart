@@ -7,16 +7,17 @@ It aims to have the following features, though:
 - [.] Flexible and scaleable enough to allow reasonable growth without
       worrying about a real build sytem
 - [.] Familiar config macros, with ready-to-use defaults for simple setups
-- [ ] Basic facilities to configure external deps. (libs)
+- [.] Basic facilities to configure external deps. (libs)
 - [x] Doesn't require external deps. itself (beyond MSVC + Windows)
 - [x] Handle src. subdirs transparently (something NMAKE hates to do...)
 - [x] Build a lib from the sources
-- [ ] Build (one more more, e.g. test) executables, too
+- [.] Build executables, too
 - [x] DEBUG/RELEASE builds
 - [.] Static/DLL builds
 - [ ] Separate target trees for incompatible build options
-- [ ] Support for C++ modules
-- [ ] Header-autodependency tracking
+- [ ] Cleanup task
+- [ ] Header dependency auto-tracking
+- [ ] (Some) support for C++ modules
 - [ ] Auto-detect changes in the build command line or in env. vars
       to trigger full rebuild
 
