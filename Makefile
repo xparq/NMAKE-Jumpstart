@@ -1,4 +1,4 @@
-#### NMAKE + MSVC C/C++ lib-builder Makefile, v0.01            (Public Domain)
+#### NMAKE + MSVC C/C++ lib-builder Makefile, v0.02            (Public Domain)
 ####
 #### BEWARE! It will be recursed via two different paths:
 #### - first from the dir-traversal loop (only 1 additional depth
@@ -11,8 +11,8 @@ THIS_MAKEFILE=Makefile
 # Project config. Edit as needed!
 #-----------------------------------------------------------------------------
 PRJ_NAME=example
-main_lib=$(lib_dir)/$(PRJ_NAME)$(lib_debug_suffix).lib
-main_exe=$(exe_dir)/$(PRJ_NAME)$(lib_debug_suffix).exe
+main_lib=$(lib_dir)/$(PRJ_NAME)$(lib_suffix).lib
+main_exe=$(exe_dir)/$(PRJ_NAME)$(exe_suffix).exe
 
 src_dir=src
 out_dir=out
@@ -57,14 +57,12 @@ node="$(DIR)"
 !message Processing source dir: $(node)...
 !endif
 
-# Adjust these for the inference rules, according to the current subdir-recursion:
-src_dir=$(src_dir)/$(DIR)
-obj_dir=$(obj_dir)/$(DIR)
-
 #-----------------------------------------------------------------------------
-#! Normalize all the (local) dirs before potentially passing them to any
-#! arcane "DOS" commands only to choke on fwd. slashes...
+#! Normalize all the (prj-local) paths before potentially passing them to any
+#! arcane "DOS" commands only to make them choke on fwd. slashes!...
 #-----------------------------------------------------------------------------
+main_lib=$(main_lib:/=\)
+main_exe=$(main_exe:/=\)
 src_dir=$(src_dir:/=\)
 out_dir=$(out_dir:/=\)
 lib_dir=$(lib_dir:/=\)
@@ -115,9 +113,39 @@ LINKFLAGS_DEBUGMODE=$(LINKFLAGS_DEBUG_0)
 CFLAGS=$(CFLAGS_DEBUGMODE) $(CFLAGS_LINKMODE) $(CFLAGS)
 LINKFLAGS=$(LINKFLAGS_DEBUGMODE) $(LINKFLAGS)
 
-lib_debug_suffix=$(subst 1,-d,$(DEBUG))
-# Fixup for DEBUG=0:
-lib_debug_suffix=$(subst 0,,$(lib_debug_suffix))
+#-----------------------------------------------------------------------------
+# Split the target tree across build alternatives...
+#!! Would be nice to just split the root, but the libs and exes can be
+#!! off the tree (for convenience & flexibility, e.g. differentiated by name
+#!! suffixes etc.)... Which leaves us with dispatching the obj_dir instead
+#!! -- and leaving the lib_dir and exe_dir unhandled yet if those targets
+#!! are not being treated specially!!
+#-----------------------------------------------------------------------------
+#!!Shouldn't be necessary; further dispatching can be incremental!
+#!!_src_dir_root=$(src_dir)
+#!!_obj_dir_root=$(obj_dir)
+
+!if "$(LINKMODE)" == "dll"
+obj_dir=$(obj_dir).dl
+# And this for the lib/exe *files* instead:
+linkmode_suffix=$(linkmode_suffix)-dl
+!endif
+
+!if "$(DEBUG)" == "1"
+obj_dir=$(obj_dir).DEBUG
+# And this for the lib/exe *files* instead:
+debugmode_suffix=-d
+!endif
+
+lib_suffix=$(linkmode_suffix)$(debugmode_suffix)
+exe_suffix=$(linkmode_suffix)$(debugmode_suffix)
+
+#-----------------------------------------------------------------------------
+# Adjust paths for the inference rules, according to the current subdir-recursion
+#-----------------------------------------------------------------------------
+src_dir=$(src_dir)\$(DIR)
+obj_dir=$(obj_dir)\$(DIR)
+
 
 #------------------------------------
 # Static/DLL link-mode adjustments
@@ -204,8 +232,19 @@ default_lib: $(main_lib)
 
 default_exe: $(main_exe)
 
+clean:
+# Cleans only the target tree of the current build alternative!
+# (A clean_all rule would be nice, too.)
+# And no way I'd just let loose an RD /S /Q "$(obj_dir)"!...
+	@cmd /e:on /c del /s "$(obj_dir)\*.obj"
+#	@for /r "$(obj_dir)" %%d in (.) do @if exist %%d\*.obj del %%d\*.obj
+#!!This doesn't work for checking an empty tree...:
+#!!	@cmd /c dir "$(obj_dir)" /s /b /a:-d || echo rd "$(obj_dir)"
+	@if exist "$(main_lib)" del "$(main_lib)"
+	@if exist "$(main_exe)" del "$(main_exe)"
+
 #=============================================================================
-# Actual build rules for targets in the task-rules...
+# Actual build rules for the task-rules above...
 #=============================================================================
 
 #-----------------------------------------------------------------------------
@@ -218,7 +257,7 @@ default_exe: $(main_exe)
 #-----------------------------------------------------------------------------
 # Build the "main executable"
 #-----------------------------------------------------------------------------
-$(main_exe): $(out_dir)/obj/main.obj $(main_lib)
+$(main_exe): $(obj_dir)\main.obj $(main_lib)
 	@echo Creating executable: $@...
 	link -nologo $(LINKFLAGS) -out:$@ $(ext_libs) $**
 
