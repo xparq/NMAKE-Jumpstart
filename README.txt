@@ -4,14 +4,15 @@ building the entirely void toy test sources" stage...)
 It aims to have the following features, though:
 
 - [x] Single-file drop-in build to kickstart simple C/C++ projects
-- [.] Flexible and scaleable enough to allow reasonable growth without
+- [x] Flexible and scaleable enough to allow reasonable growth without
       worrying about a real build sytem
 - [.] Familiar config macros, with ready-to-use defaults for simple setups
 - [.] Basic facilities to configure external deps. (libs)
 - [x] Doesn't require external deps. itself (beyond MSVC + Windows)
 - [x] Handle src. subdirs transparently (something NMAKE hates to do...)
 - [x] Build a lib from the sources
-- [.] Build executables, too
+- [x] Build executables
+- [ ] Basic (configurable) smoke-testing of build results
 - [x] DEBUG/RELEASE builds
 - [.] Static/DLL builds
 - [ ] Separate target trees for incompatible build options
@@ -32,17 +33,22 @@ DEV. NOTES:
   (While NMAKE can execute shell commands during preproc. time to gather
   files or subdirs recursively anywhere, the problem is that the results
   of those commands can't be assigned to macros. !INCLUDE files could be
-  created on-the-fly during preprocessing time, but that feels like an
-  even more cumbersome and/or brittle approach than the one chosen here.)
+  created on-the-fly during preprocessing time, but only very simple ones,
+  as the hostile "programming environment" of the !if[...] NMAKE directive
+  combined with the CMD shell command-line you land on within that makes
+  a Mars-mission feel like a dream holiday in comparison!)
 
-* To avoid having to name the taget modules one by one, the only sane way
-  to enumerate them (with most make tools) is
+* To avoid having to name the taget modules one by one, especially across
+  multiple directories, the only sane way to enumerate them (with most make
+  tools) is
 
-    1. to assume a one-to-one relationship between certain source file
-       types ("translation units" in C/C++) and corresponding target files,
+    1. to assume a 1-to-1 relationship between the (relative) paths of
+       certain source file types (i.e. the C/C++ translation units) and
+       their corresponding targets (i.e. object files),
 
-    2. and map those source names to their matching target name pairs
-       using inference rules to compile them.
+    2. and map those source names to their matching target names to allow
+       compiling -- via inference rules -- implicitly, identifying them by
+       their types and locations, not their names.
 
   However, due to two other inabilities of NMAKE, i.e. that a) it can't do
   pattern-matching for paths in inference rules, and b) it can only match

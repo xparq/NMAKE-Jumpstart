@@ -21,6 +21,10 @@ exe_dir=$(out_dir)
 obj_dir=$(out_dir)/obj
 cxx_mod_ifc_dir=$(out_dir)/mod
 
+# Put (only) these into the lib
+# (Relative to src_dir; keep it empty for the root of it!)
+lib_src_subdir=
+
 # Options:
 DEBUG=0
 LINKMODE=static
@@ -39,19 +43,21 @@ ext_libs=
 #=============================================================================
 .SUFFIXES: .c .cpp .cxx .ixx
 
+obj_sources=.cpp .cxx .c
+
 #-----------------------------------------------------------------------------
 # Show current processing stage...
 #-----------------------------------------------------------------------------
 !ifdef RECURSED_FOR_COMPILING
 !if "$(DIR)" == ""
-node=main
+node=(main)
 !else
-node=$(DIR)
+node="$(DIR)"
 !endif
-!message Compiling: "$(node)"...
+!message Processing source dir: $(node)...
 !endif
 
-# Adjust these for the current subdir-recursion:
+# Adjust these for the inference rules, according to the current subdir-recursion:
 src_dir=$(src_dir)/$(DIR)
 obj_dir=$(obj_dir)/$(DIR)
 
@@ -64,6 +70,16 @@ out_dir=$(out_dir:/=\)
 lib_dir=$(lib_dir:/=\)
 obj_dir=$(obj_dir:/=\)
 cxx_mod_ifc_dir=$(cxx_mod_ifc_dir:/=\)
+
+#!!!! I can't do path translation in !if[...] one-liners, so there's not
+#!!!! much point in collecting the sources in a file, as they can only
+#!!!! be used too late, in commands, anyway... :-/
+#!!!! See the mk_main_lib_dep_list: rule hack instead!
+#!! Collect all the lib sources (for further processing later)
+#!! (Mind each \ in the dir command! ;) )
+#!!!if ![dir /s /b $(src_dir)\$(main_lib_root_dir)\*.c* > $(libsrclist_tmp)]
+#!!!endif
+
 
 #-----------------------------------------------------------------------------
 # Set/adjust tool options (according to the config)...
@@ -119,31 +135,32 @@ CFLAGS_CRT_LINKMODE=-MD
 # Default target - walk through the src tree dir-by-dir & build each,
 #                  plus do an initial and a final wrapping round
 #-----------------------------------------------------------------------------
-traverse_src_tree::
+traverse_src_tree:
 	@cmd /v:on /c <<treewalk.cmd
 	@echo off
-	rem !!This below had failed to run without the extra shell. (I'm not even surprised any more.)
-	set make=cmd /c $(MAKE_CMD)
+	rem !!This below fails to run without the extra shell! :-o
+	rem !!Also -> #8 why the env. var here can't be called just "make"!... ;)
+	set _make_=cmd /c $(MAKE_CMD)
 	set srcroot_fullpath=!CD!\$(src_dir)
 	:: echo $(src_dir)
 	:: echo !srcroot_fullpath!
 	rem Do the root level first (-> preps!)...
 	rem (Note: naming a (different) target would avoid inf. recursion.)
-	!make! start compiling
+	!_make_! /c start compiling
 	rem Scan the source tree for sources...
 	for /f %%i in ('dir /s /b /a:d !srcroot_fullpath!') do (
 		rem It's *vital* to use a local name here, not dir (==DIR!!!):
 		set _dir_=%%i
 		set _dir_=!_dir_:%srcroot_fullpath%=!
-		!make! compiling DIR=!_dir_!
+		!_make_! /c compiling DIR=!_dir_!
 	)
-	!make! finish
+	!_make_! RECURSED_FOR_FINISHING=1 finish
 <<
 
 #-----------------------------------------------------------------------------
 # Other task-rules...
 #-----------------------------------------------------------------------------
-start: mk_main_target_dirs
+start: mk_main_target_dirs mk_main_lib_rule_inc
 
 compiling: mk_obj_dirs objs
 
@@ -163,17 +180,27 @@ objs: $(src_dir)/$(units_pattern).c*
 	@$(MAKE_CMD) RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,\
 		$(subst .c,.obj,$(subst .cxx,.obj,$(subst .cpp,.obj,$**))))
 
-default_lib:
-	@echo Creating lib...
+mainlib_rule_inc=$(out_dir)\mainlib_rule.inc
+mk_main_lib_rule_inc:
 	@cmd /v:on /c <<mklib.cmd
 	@echo off
-	for /r $(obj_dir) %%o in ($(units_pattern).obj) do  (
+	for /r $(src_dir)\$(lib_src_subdir) %%o in ($(units_pattern).c*) do  (
 		set _o_=%%o
-		set _o_=!_o_:%CD%\=!
-		set objlist=!objlist! !_o_!
+		set _o_=!_o_:%CD%\$(src_dir)=!
+		for %%x in ($(obj_sources)) do (
+			set _o_=!_o_:%%x=.obj!
+		)
+		set objlist=!objlist! $(obj_dir)!_o_:.cpp=.obj!
 	)
-	lib -nologo -out:$(main_lib) !objlist!
+	echo $(main_lib): !objlist! > $(mainlib_rule_inc)
 <<
+# And this crap is here separately only because echo can't echo TABs:
+	@type << >> $(mainlib_rule_inc)
+	@echo Creating lib: $$@...
+	lib -nologo -out:$$@ $$**
+<<
+
+default_lib: $(main_lib)
 
 default_exe: $(main_exe)
 
@@ -182,14 +209,23 @@ default_exe: $(main_exe)
 #=============================================================================
 
 #-----------------------------------------------------------------------------
+# Build the "main lib" -> GH Issue #2 about force-rebuilding it!
+#-----------------------------------------------------------------------------
+!ifdef RECURSED_FOR_FINISHING
+!include $(mainlib_rule_inc)
+!endif
+
+#-----------------------------------------------------------------------------
 # Build the "main executable"
 #-----------------------------------------------------------------------------
 $(main_exe): $(out_dir)/obj/main.obj $(main_lib)
-	@echo Creating executable: $(main_exe)...
-	link $(LINKFLAGS) $(ext_libs) $** -out:$@
+	@echo Creating executable: $@...
+	link -nologo $(LINKFLAGS) -out:$@ $(ext_libs) $**
 
 #-----------------------------------------------------------------------------
 # Inference rules for .obj compilation...
+# NOTE: The prefix paths have been updated (see way above) to match the
+#       subdir the tree traversal (recursion) is currently at!
 #-----------------------------------------------------------------------------
 {$(src_dir)}.c{$(obj_dir)}.obj::
 	$(CC)   $(CFLAGS) -Fo$(obj_dir)/ $<
