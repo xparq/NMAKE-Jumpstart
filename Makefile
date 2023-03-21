@@ -1,7 +1,8 @@
-#### MSVC Jumpstart Makefile, v0.03                            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.04                            (Public Domain)
+#### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
-#### BEWARE! Various features require recursive NMAKE invocations, so update
-#### the macro below if you rename this file:
+#### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
+#### you rename this file:
 THIS_MAKEFILE=Makefile
 
 #-----------------------------------------------------------------------------
@@ -17,9 +18,10 @@ lib_dir=$(out_dir)
 exe_dir=$(out_dir)
 obj_dir=$(out_dir)/obj
 cxx_mod_ifc_dir=$(out_dir)/ifc
-# Put (only) these into the lib
-# (Relative to src_dir; keep it empty for the root of it!)
+# Put (only) these into the lib (relative to src_dir; leave it empty for "all"):
 lib_src_subdir=
+
+# Source (translation unit) basename filter:
 units_pattern=*
 
 # External dependencies:
@@ -34,7 +36,6 @@ ext_libs=
 DEBUG=0
 CRT=static
 
-units_pattern=*
 CFLAGS=-W4
 CXXFLAGS=-std:c++latest
 # Note: C++ compilation would use $(CFLAGS), too.
@@ -61,8 +62,8 @@ node="$(DIR)"
 !endif
 
 #-----------------------------------------------------------------------------
-#! Normalize all the (prj-local) paths before potentially passing them to any
-#! arcane "DOS" commands only to make them choke on fwd. slashes!...
+# Normalize all the (prj-local) paths before potentially passing them to any
+# arcane "DOS" commands only to make them choke on fwd. slashes!...
 #-----------------------------------------------------------------------------
 main_lib=$(main_lib:/=\)
 main_exe=$(main_exe:/=\)
@@ -79,7 +80,7 @@ cxx_mod_ifc_dir=$(cxx_mod_ifc_dir:/=\)
 MAKE_CMD=$(MAKE) /nologo /$(MAKEFLAGS) /f $(THIS_MAKEFILE) DEBUG=$(DEBUG) CRT=$(CRT)
 
 CFLAGS=-nologo -c $(CFLAGS)
-CXXFLAGS=-EHsc
+CXXFLAGS=-EHsc $(CXXFLAGS)
 !if "$(cxx_mod_ifc_dir)" != ""
 CXXFLAGS=-ifcSearchDir $(cxx_mod_ifc_dir) $(CXXFLAGS)
 !endif
@@ -199,7 +200,7 @@ traverse_src_tree:
 #       subdir the tree traversal (recursion) is currently at!
 #-----------------------------------------------------------------------------
 {$(src_dir)}.c{$(obj_dir)}.obj::
-	$(CC)   $(CFLAGS) -Fo$(obj_dir)/ $<
+	$(CC) $(CFLAGS) -Fo$(obj_dir)/ $<
 
 {$(src_dir)}.cpp{$(obj_dir)}.obj::
 	$(CXX) $(CFLAGS) $(CXXFLAGS) -Fo$(obj_dir)/ $<

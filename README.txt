@@ -6,7 +6,7 @@ It aims to have the following features, though:
 - [x] Single-file drop-in build to kickstart simple C/C++ projects
 - [x] Flexible and scaleable enough to allow reasonable growth without
       worrying about a real build sytem
-- [.] Familiar config macros, with ready-to-use defaults for simple setups
+- [.] Familiar config macros, with ready-to-use defaults for common setups
 - [x] Basic facilities to configure external deps. (libs)
 - [x] Doesn't impose any additional external deps. itself
 - [x] Handle src. subdirs transparently (something NMAKE hates to do...)
