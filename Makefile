@@ -1,42 +1,44 @@
-#### NMAKE + MSVC C/C++ lib-builder Makefile, v0.02            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.03                            (Public Domain)
 ####
-#### BEWARE! It will be recursed via two different paths:
-#### - first from the dir-traversal loop (only 1 additional depth
-####   level; the dir-traversal is NOT recursive!)
-#### - then also with the list of obj. files for that dir to compile
-#### Accordingly, update this macro below if you rename this file!
+#### BEWARE! Various features require recursive NMAKE invocations, so update
+#### the macro below if you rename this file:
 THIS_MAKEFILE=Makefile
 
 #-----------------------------------------------------------------------------
-# Project config. Edit as needed!
+# Config - Project layout
 #-----------------------------------------------------------------------------
 PRJ_NAME=example
-main_lib=$(lib_dir)/$(PRJ_NAME)$(lib_suffix).lib
-main_exe=$(exe_dir)/$(PRJ_NAME)$(exe_suffix).exe
+main_lib=$(lib_dir)/$(PRJ_NAME)$(buildmode_suffix).lib
+main_exe=$(exe_dir)/$(PRJ_NAME)$(buildmode_suffix).exe
 
-src_dir=src
+src_dir=src.test
 out_dir=out
 lib_dir=$(out_dir)
 exe_dir=$(out_dir)
 obj_dir=$(out_dir)/obj
-cxx_mod_ifc_dir=$(out_dir)/mod
-
+cxx_mod_ifc_dir=$(out_dir)/ifc
 # Put (only) these into the lib
 # (Relative to src_dir; keep it empty for the root of it!)
 lib_src_subdir=
-
-# Options:
-DEBUG=0
-LINKMODE=static
 units_pattern=*
-CFLAGS=-W4
-CXXFLAGS=-EHsc -std:c++latest
-# Note: C++ compilation would use $(CFLAGS), too.
 
 # External dependencies:
-ext_include_path=
-ext_lib_path=
+ext_include_dirs=
+ext_lib_dirs=
 ext_libs=
+
+#-----------------------------------------------------------------------------
+# Config - Build options
+#-----------------------------------------------------------------------------
+# Build alternatives (override from the command-line, too, if needed):
+DEBUG=0
+CRT=static
+
+units_pattern=*
+CFLAGS=-W4
+CXXFLAGS=-std:c++latest
+# Note: C++ compilation would use $(CFLAGS), too.
+
 
 #=============================================================================
 #                     NO EDITS NEEDED BELOW, NORMALLY...
@@ -44,6 +46,7 @@ ext_libs=
 .SUFFIXES: .c .cpp .cxx .ixx
 
 obj_sources=.cpp .cxx .c
+
 
 #-----------------------------------------------------------------------------
 # Show current processing stage...
@@ -69,66 +72,80 @@ lib_dir=$(lib_dir:/=\)
 obj_dir=$(obj_dir:/=\)
 cxx_mod_ifc_dir=$(cxx_mod_ifc_dir:/=\)
 
-#!!!! I can't do path translation in !if[...] one-liners, so there's not
-#!!!! much point in collecting the sources in a file, as they can only
-#!!!! be used too late, in commands, anyway... :-/
-#!!!! See the mk_main_lib_dep_list: rule hack instead!
-#!! Collect all the lib sources (for further processing later)
-#!! (Mind each \ in the dir command! ;) )
-#!!!if ![dir /s /b $(src_dir)\$(main_lib_root_dir)\*.c* > $(libsrclist_tmp)]
-#!!!endif
-
-
 #-----------------------------------------------------------------------------
 # Set/adjust tool options (according to the config)...
 #-----------------------------------------------------------------------------
 # Preserve the original NMAKE flags & explicitly supported macros on recursion:
-MAKE_CMD=$(MAKE) /nologo /$(MAKEFLAGS) /f $(THIS_MAKEFILE) DEBUG=$(DEBUG) LINKMODE=$(LINKMODE)
+MAKE_CMD=$(MAKE) /nologo /$(MAKEFLAGS) /f $(THIS_MAKEFILE) DEBUG=$(DEBUG) CRT=$(CRT)
 
 CFLAGS=-nologo -c $(CFLAGS)
+CXXFLAGS=-EHsc
+!if "$(cxx_mod_ifc_dir)" != ""
 CXXFLAGS=-ifcSearchDir $(cxx_mod_ifc_dir) $(CXXFLAGS)
+!endif
 
-#-----------------------------
-# DEBUG/RELEASE adjustments
+#----------------------------
+# Static/DLL CRT link mode
 #------
-CFLAGS_DEBUG_0=$(CFLAGS_CRT_LINKMODE) -O2 -DNDEBUG
+!if "$(CRT)" == "static"
+_cflags_crt_linkmode=-MT
+!else if "$(CRT)" == "dll"
+_cflags_crt_linkmode=-MD
+!else
+!error Unknown CRT link mode: $(CRT)!
+!endif
+
+#----------------------
+# DEBUG/RELEASE mode
+#------
+cflags_debug_0=$(_cflags_crt_linkmode) -O2 -DNDEBUG
 # The -O...s below are taken from Dr. Memory's README/Quick start.
 # -ZI enables edit-and-continue (but it only exists for Intel CPUs!).
-CFLAGS_DEBUG_1=$(CFLAGS_CRT_LINKMODE)d -ZI -Oy- -Ob0 -DDEBUG -Fd$(out_dir)/
-LINKFLAGS_DEBUG_0=
-LINKFLAGS_DEBUG_1=-debug -incremental -editandcontinue -ignore:4099
+cflags_debug_1=$(_cflags_crt_linkmode)d -ZI -Od -Oy- -Ob0 -RTCsu -DDEBUG -Fd$(out_dir)/
+linkflags_debug_0=
+linkflags_debug_1=-debug -incremental -editandcontinue -ignore:4099
 
 !if defined(DEBUG) && $(DEBUG) == 1
-#!!message DEBUG mode.
-CFLAGS_DEBUGMODE=$(CFLAGS_DEBUG_1)
-LINKFLAGS_DEBUGMODE=$(LINKFLAGS_DEBUG_1)
+_cflags_debugmode=$(cflags_debug_1)
+_linkflags_debugmode=$(linkflags_debug_1)
 !else if $(DEBUG) == 0
-#!!message Release mode.
-CFLAGS_DEBUGMODE=$(CFLAGS_DEBUG_0)
-LINKFLAGS_DEBUGMODE=$(LINKFLAGS_DEBUG_0)
+_cflags_debugmode=$(cflags_debug_0)
+_linkflags_debugmode=$(linkflags_debug_0)
 !else
 !error Unknown debug mode: $(DEBUG)!
 !endif
 
-CFLAGS=$(CFLAGS_DEBUGMODE) $(CFLAGS_LINKMODE) $(CFLAGS)
-LINKFLAGS=$(LINKFLAGS_DEBUGMODE) $(LINKFLAGS)
+CFLAGS=$(_cflags_debugmode) $(CFLAGS)
+LINKFLAGS=$(_linkflags_debugmode) $(LINKFLAGS)
+
+#---------------------------------------
+# External include & lib search paths
+#------
+!if "$(ext_include_dirs)" != ""
+!if [set INCLUDE=%INCLUDE%;$(ext_include_dirs)]
+!endif
+!endif
+
+!if "$(ext_lib_dirs)" != ""
+!if [set LIB=%LIB%;$(ext_lib_dirs)]
+!endif
+!endif
+
+#!if "$(ext_lib_dirs)" != ""
+#LINKFLAGS=$(LINKFLAGS) -libpath:$(ext_lib_dirs)
+#!endif
 
 #-----------------------------------------------------------------------------
 # Split the target tree across build alternatives...
 #!! Would be nice to just split the root, but the libs and exes can be
 #!! off the tree (for convenience & flexibility, e.g. differentiated by name
 #!! suffixes etc.)... Which leaves us with dispatching the obj_dir instead
-#!! -- and leaving the lib_dir and exe_dir unhandled yet if those targets
-#!! are not being treated specially!!
+#!! -- and leaving the lib_dir and exe_dir totally ignored... :-/
 #-----------------------------------------------------------------------------
-#!!Shouldn't be necessary; further dispatching can be incremental!
-#!!_src_dir_root=$(src_dir)
-#!!_obj_dir_root=$(obj_dir)
-
-!if "$(LINKMODE)" == "dll"
+!if "$(CRT)" == "dll"
 obj_dir=$(obj_dir).dl
 # And this for the lib/exe *files* instead:
-linkmode_suffix=$(linkmode_suffix)-dl
+crt_linkmode_suffix=$(crt_linkmode_suffix)-dl
 !endif
 
 !if "$(DEBUG)" == "1"
@@ -137,8 +154,7 @@ obj_dir=$(obj_dir).DEBUG
 debugmode_suffix=-d
 !endif
 
-lib_suffix=$(linkmode_suffix)$(debugmode_suffix)
-exe_suffix=$(linkmode_suffix)$(debugmode_suffix)
+buildmode_suffix=$(crt_linkmode_suffix)$(debugmode_suffix)
 
 #-----------------------------------------------------------------------------
 # Adjust paths for the inference rules, according to the current subdir-recursion
@@ -146,19 +162,9 @@ exe_suffix=$(linkmode_suffix)$(debugmode_suffix)
 src_dir=$(src_dir)\$(DIR)
 obj_dir=$(obj_dir)\$(DIR)
 
-
-#------------------------------------
-# Static/DLL link-mode adjustments
-#------
-!if "$(LINKMODE)" == "static"
-CFLAGS_CRT_LINKMODE=-MT
-!else if "$(LINKMODE)" == "dll"
-CFLAGS_CRT_LINKMODE=-MD
-!else
-!error Unknown link mode: $(LINKMODE)!
-!endif
-
-
+#=============================================================================
+# Rules...
+#=============================================================================
 #-----------------------------------------------------------------------------
 # Default target - walk through the src tree dir-by-dir & build each,
 #                  plus do an initial and a final wrapping round
@@ -166,7 +172,7 @@ CFLAGS_CRT_LINKMODE=-MD
 traverse_src_tree:
 	@cmd /v:on /c <<treewalk.cmd
 	@echo off
-	rem !!This below fails to run without the extra shell! :-o
+	rem !!The make cmd. below fails to run without the extra shell! :-o
 	rem !!Also -> #8 why the env. var here can't be called just "make"!... ;)
 	set _make_=cmd /c $(MAKE_CMD)
 	set srcroot_fullpath=!CD!\$(src_dir)
@@ -180,24 +186,47 @@ traverse_src_tree:
 		rem It's *vital* to use a local name here, not dir (==DIR!!!):
 		set _dir_=%%i
 		set _dir_=!_dir_:%srcroot_fullpath%=!
-		!_make_! /c compiling DIR=!_dir_!
+		if exist %%i\*.cpp !_make_! /c compiling DIR=!_dir_!
+		if exist %%i\*.cxx !_make_! /c compiling DIR=!_dir_!
+		if exist %%i\*.c   !_make_! /c compiling DIR=!_dir_!
 	)
 	!_make_! RECURSED_FOR_FINISHING=1 finish
 <<
 
 #-----------------------------------------------------------------------------
-# Other task-rules...
+# Inference rules for .obj compilation...
+# NOTE: The prefix paths have been updated (see way above) to match the
+#       subdir the tree traversal (recursion) is currently at!
+#-----------------------------------------------------------------------------
+{$(src_dir)}.c{$(obj_dir)}.obj::
+	$(CC)   $(CFLAGS) -Fo$(obj_dir)/ $<
+
+{$(src_dir)}.cpp{$(obj_dir)}.obj::
+	$(CXX) $(CFLAGS) $(CXXFLAGS) -Fo$(obj_dir)/ $<
+
+{$(src_dir)}.cxx{$(obj_dir)}.obj::
+	$(CXX) $(CFLAGS) $(CXXFLAGS) -Fo$(obj_dir)/ $<
+
+#!!?? This is probably not the way to compile mod. ifcs!...:
+#{$(src_dir)}.ixx{$(obj_dir)}.ifc::
+#	$(CXX) $(CFLAGS) $(CXXFLAGS) -ifcOutput $(cxx_mod_ifc_dir)/ $<
+
+
+#-----------------------------------------------------------------------------
+# "Tasks" (one-off and type-related higher-level rules for meta/admin jobs)...
 #-----------------------------------------------------------------------------
 start: mk_main_target_dirs mk_main_lib_rule_inc
 
 compiling: mk_obj_dirs objs
 
-finish: default_lib default_exe
+finish: $(main_lib) $(main_exe)
 
 mk_main_target_dirs:
 # Pre-create the output dirs, as MSVC can't be bothered:
+	@if not exist "$(out_dir)" md "$(out_dir)"
 	@if not exist "$(lib_dir)" md "$(lib_dir)"
-	@if not exist "$(cxx_mod_ifc_dir)" md "$(cxx_mod_ifc_dir)"
+	@if not exist "$(exe_dir)" md "$(exe_dir)"
+#!!	@if not exist "$(cxx_mod_ifc_dir)" md "$(cxx_mod_ifc_dir)"
 
 mk_obj_dirs:
 # These vary for each subdir, so can't be done just once at init:
@@ -228,53 +257,52 @@ mk_main_lib_rule_inc:
 	lib -nologo -out:$$@ $$**
 <<
 
-default_lib: $(main_lib)
-
-default_exe: $(main_exe)
-
 clean:
 # Cleans only the target tree of the current build alternative!
-# (A clean_all rule would be nice, too.)
-# And no way I'd just let loose an RD /S /Q "$(obj_dir)"!...
-	@cmd /e:on /c del /s "$(obj_dir)\*.obj"
-#	@for /r "$(obj_dir)" %%d in (.) do @if exist %%d\*.obj del %%d\*.obj
-#!!This doesn't work for checking an empty tree...:
-#!!	@cmd /c dir "$(obj_dir)" /s /b /a:-d || echo rd "$(obj_dir)"
+# And no way I'd just let loose a blanket RD /S /Q "$(out_dir)"!...
+	@if not "$(abspath $(obj_dir))" == "$(abspath .\$(obj_dir))" echo - ERROR: Invalid object dir path: "$(obj_dir)" && exit -1
+# Stop listing all the deleted .obj files despite /q -> cmd /e:off (self-explanatory, right?)
+	@if exist "$(obj_dir)\*.obj" cmd /e:off /c del /s /q "$(obj_dir)\*.obj"
+# To let the idiotic tools run at least, the dir must exist, so if it was deleted
+# in a previous run, we must recreate it just to be able to check and then delete
+# it right away again... Otherwise: "The system cannot find the file specified."):
+	@if not exist "$(obj_dir)" mkdir "$(obj_dir)"
+	@dir "$(obj_dir)" /s /b /a:-d 2>nul || rd /s /q "$(obj_dir)"
+# Delete the lib/exe separately, as they may be off-tree:
 	@if exist "$(main_lib)" del "$(main_lib)"
 	@if exist "$(main_exe)" del "$(main_exe)"
+# Delete some other cruft, too:
+	@del "$(out_dir)\*.pdb" "$(out_dir)\*.idb" "$(out_dir)\*.ilk" 2>nul
+	@if exist "$(mainlib_rule_inc)" del "$(mainlib_rule_inc)"
 
-#=============================================================================
-# Actual build rules for the task-rules above...
-#=============================================================================
+clean_all:
+	@if not "$(abspath $(out_dir))" == "$(abspath .\$(out_dir))" echo - ERROR: Invalid output dir path: "$(out_dir)" && exit -1
+# RD will ask...:
+# - But to let the idiotic tools run at least, the dir must exist, so if it was deleted
+# in a previous run, we must recreate it just to be able to check and then delete it
+# right away again... Otherwise: "The system cannot find the file specified."):
+	@if not exist "$(out_dir)" mkdir "$(out_dir)"
+	@if not "$(abspath $(out_dir))" == "$(abspath .)" @rd /s "$(out_dir)"
+# Delete the libs/exes separately, as they may be off-tree:
+	@if exist "$(main_lib)" del "$(main_lib)"
+	@if exist "$(main_exe)" del "$(main_exe)"
+#!!Still can't do the entire "matrix" tho! :-/ (Behold the freakish triple quotes here! ;) )
+	@echo - NOTE: Some build targets may still have been left around, if they are not in """$(out_dir)""".
+
 
 #-----------------------------------------------------------------------------
-# Build the "main lib" -> GH Issue #2 about force-rebuilding it!
+# Actual (low-level) one-off build jobs...
 #-----------------------------------------------------------------------------
+#------------------------
+# Build the "main" lib
+#------
 !ifdef RECURSED_FOR_FINISHING
 !include $(mainlib_rule_inc)
 !endif
 
-#-----------------------------------------------------------------------------
-# Build the "main executable"
-#-----------------------------------------------------------------------------
+#------------------------
+# Build the "main" exe
+#------
 $(main_exe): $(obj_dir)\main.obj $(main_lib)
 	@echo Creating executable: $@...
 	link -nologo $(LINKFLAGS) -out:$@ $(ext_libs) $**
-
-#-----------------------------------------------------------------------------
-# Inference rules for .obj compilation...
-# NOTE: The prefix paths have been updated (see way above) to match the
-#       subdir the tree traversal (recursion) is currently at!
-#-----------------------------------------------------------------------------
-{$(src_dir)}.c{$(obj_dir)}.obj::
-	$(CC)   $(CFLAGS) -Fo$(obj_dir)/ $<
-
-{$(src_dir)}.cpp{$(obj_dir)}.obj::
-	$(CXX) $(CFLAGS) $(CXXFLAGS) -Fo$(obj_dir)/ $<
-
-{$(src_dir)}.cxx{$(obj_dir)}.obj::
-	$(CXX) $(CFLAGS) $(CXXFLAGS) -Fo$(obj_dir)/ $<
-
-#!!?? This is probably not the way to compile mod. ifcs!...:
-#{$(src_dir)}.ixx{$(obj_dir)}.ifc::
-#	$(CXX) $(CFLAGS) $(CXXFLAGS) -ifcOutput $(cxx_mod_ifc_dir)/ $<
