@@ -10,8 +10,8 @@ It aims to have the following features, though:
 - [x] Basic facilities to configure external deps. (libs)
 - [x] Doesn't impose any additional external deps. itself
 - [x] Handle src. subdirs transparently (something NMAKE hates to do...)
-- [x] Build a lib from the sources
-- [x] Build executables
+- [x] Build a lib from (part of) the sources
+- [x] Build executable(s), too, of course
 - [ ] Basic (configurable) smoke-testing of build results
 - [x] DEBUG/release build alternatives (DEBUG=1/0, default: 0)
 - [x] Static/DLL CRT build alternatives (CRT=static/dll, default: static)
