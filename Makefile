@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, v0.05                            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.06                            (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -179,10 +179,13 @@ traverse_src_tree:
 	set srcroot_fullpath=!CD!\$(src_dir)
 	:: echo $(src_dir)
 	:: echo !srcroot_fullpath!
-	rem Do the root level first (-> preps!)...
+	rem Do the root level first (-> preps + top-level sources)...
 	rem (Note: naming a (different) target would avoid inf. recursion.)
-	!_make_! /c start compiling || exit -1
-	rem Scan the source tree for sources...
+	!_make_! /c start || exit -1
+	if exist %%i\*.cpp !_make_! /c compiling || if errorlevel 1 exit -1
+	if exist %%i\*.cxx !_make_! /c compiling || if errorlevel 1 exit -1
+	if exist %%i\*.c   !_make_! /c compiling || if errorlevel 1 exit -1
+	rem Scan the rest of the source tree for sources...
 	for /f %%i in ('dir /s /b /a:d !srcroot_fullpath!') do (
 		rem It's *vital* to use a local name here, not dir (==DIR!!!):
 		set _dir_=%%i
