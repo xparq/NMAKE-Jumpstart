@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, v0.06                            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.07                            (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -44,9 +44,12 @@ CXXFLAGS=-std:c++latest
 #=============================================================================
 #                     NO EDITS NEEDED BELOW, NORMALLY...
 #=============================================================================
-.SUFFIXES: .c .cpp .cxx .ixx
+obj_source_exts=cpp cxx c
 
-obj_sources=.cpp .cxx .c
+# Yeah, well, you can't direclty add $(patsubst %,.%,$(obj_source_exts)) to
+# .SUFFIXES, as it'd trigger a syntax error!... :-o
+_compilable_src_exts_=$(patsubst %,.%,$(obj_source_exts))
+.SUFFIXES: $(_compilable_src_exts_) .ixx
 
 
 #-----------------------------------------------------------------------------
@@ -160,8 +163,10 @@ buildmode_suffix=$(crt_linkmode_suffix)$(debugmode_suffix)
 #-----------------------------------------------------------------------------
 # Adjust paths for the inference rules, according to the current subdir-recursion
 #-----------------------------------------------------------------------------
+!if "$(DIR)" != ""
 src_dir=$(src_dir)\$(DIR)
 obj_dir=$(obj_dir)\$(DIR)
+!endif
 
 #=============================================================================
 # Rules...
@@ -182,17 +187,17 @@ traverse_src_tree:
 	rem Do the root level first (-> preps + top-level sources)...
 	rem (Note: naming a (different) target would avoid inf. recursion.)
 	!_make_! /c start || exit -1
-	if exist %%i\*.cpp !_make_! /c compiling || if errorlevel 1 exit -1
-	if exist %%i\*.cxx !_make_! /c compiling || if errorlevel 1 exit -1
-	if exist %%i\*.c   !_make_! /c compiling || if errorlevel 1 exit -1
+        for %%x in ($(obj_source_exts)) do (
+		if exist "$(src_dir)\*.%%x" !_make_! /c compiling SRC_EXT_=%%x || if errorlevel 1 exit -1
+	)
 	rem Scan the rest of the source tree for sources...
 	for /f %%i in ('dir /s /b /a:d !srcroot_fullpath!') do (
 		rem It's *vital* to use a local name here, not dir (==DIR!!!):
 		set _dir_=%%i
 		set _dir_=!_dir_:%srcroot_fullpath%=!
-		if exist %%i\*.cpp !_make_! /c compiling DIR=!_dir_! || if errorlevel 1 exit -1
-		if exist %%i\*.cxx !_make_! /c compiling DIR=!_dir_! || if errorlevel 1 exit -1
-		if exist %%i\*.c   !_make_! /c compiling DIR=!_dir_! || if errorlevel 1 exit -1
+	        for %%x in ($(obj_source_exts)) do (
+			if exist %%i\*.%%x !_make_! /c compiling "DIR=!_dir_!" SRC_EXT_=%%x || if errorlevel 1 exit -1
+		)
 	)
 	!_make_! RECURSED_FOR_FINISHING=1 finish
 <<
@@ -236,10 +241,15 @@ mk_obj_dirs:
 # These vary for each subdir, so can't be done just once at init:
 	@if not exist "$(obj_dir)" md "$(obj_dir)"
 
-objs: $(src_dir)/$(units_pattern).c*
-# Do the .c after all the other patterns that could also match ".c*"!:
+!ifdef SRC_EXT_
+objs: $(src_dir)/$(units_pattern).$(SRC_EXT_)
+# Amazingly, `patsubst $(src_dir)\%,$(obj_dir)\%...` below would kill the inf. rule matching! :-o
+# Despite also changing it to backslash above, in the rule, of course.
+# And despite inf. rules being quite robust against / vs \ otherwise. (What am I missing here,
+# on this late night hour?...)
 	@$(MAKE_CMD) RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(patsubst $(src_dir)/%,$(obj_dir)/%,\
-		$(subst .c,.obj,$(subst .cxx,.obj,$(subst .cpp,.obj,$**))))
+		$(subst .$(SRC_EXT_),.obj,$**))
+!endif
 
 mainlib_rule_inc=$(out_dir)\mainlib_rule.inc
 mk_main_lib_rule_inc:
@@ -248,10 +258,10 @@ mk_main_lib_rule_inc:
 	for /r $(src_dir)\$(lib_src_subdir) %%o in ($(units_pattern).c*) do  (
 		set _o_=%%o
 		set _o_=!_o_:%CD%\$(src_dir)=!
-		for %%x in ($(obj_sources)) do (
-			set _o_=!_o_:%%x=.obj!
+		for %%x in ($(obj_source_exts)) do (
+			set _o_=!_o_:.%%x=.obj!
 		)
-		set objlist=!objlist! $(obj_dir)!_o_:.cpp=.obj!
+		set objlist=!objlist! $(obj_dir)!_o_!
 	)
 	echo $(main_lib): !objlist! > $(mainlib_rule_inc)
 <<
