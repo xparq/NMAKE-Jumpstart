@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, v0.09                            (Public Domain)
+#### MSVC Jumpstart Makefile, r10                              (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -9,7 +9,7 @@ THIS_MAKEFILE=Makefile
 # Config - Project layout
 #-----------------------------------------------------------------------------
 PRJ_NAME=example
-main_lib=$(lib_dir)/$(PRJ_NAME)$(buildmode_suffix).lib
+#main_lib=$(lib_dir)/$(PRJ_NAME)$(buildmode_suffix).lib
 main_exe=$(exe_dir)/$(PRJ_NAME)$(buildmode_suffix).exe
 
 src_dir=src
@@ -36,6 +36,7 @@ ext_libs=
 DEBUG=0
 CRT=static
 
+# Comp. flags:
 CFLAGS=-W4 -Iinclude
 CXXFLAGS=-std:c++latest
 # Note: C++ compilation would use $(CFLAGS), too.
@@ -45,12 +46,6 @@ CXXFLAGS=-std:c++latest
 #                     NO EDITS NEEDED BELOW, NORMALLY...
 #=============================================================================
 obj_source_exts=cpp cxx c
-
-# Yeah, well, you can't direclty add $(patsubst %,.%,$(obj_source_exts)) to
-# .SUFFIXES, as it'd trigger a syntax error!... :-o
-_compilable_src_exts_=$(patsubst %,.%,$(obj_source_exts))
-.SUFFIXES: $(_compilable_src_exts_) .ixx
-
 
 #-----------------------------------------------------------------------------
 # Show current processing stage...
@@ -207,6 +202,11 @@ traverse_src_tree:
 # NOTE: The prefix paths have been updated (see way above) to match the
 #       subdir the tree traversal (recursion) is currently at!
 #-----------------------------------------------------------------------------
+# Yeah, well, you can't direclty add $(patsubst %,.%,$(obj_source_exts)) to
+# .SUFFIXES, as it'd trigger a syntax error!... :-o
+_compilable_src_exts_=$(patsubst %,.%,$(obj_source_exts))
+.SUFFIXES: $(_compilable_src_exts_) .ixx
+#-----------------------------------------------------------------------------
 {$(src_dir)}.c{$(obj_dir)}.obj::
 	$(CC) $(CFLAGS) -Fo$(obj_dir)/ $<
 
@@ -310,13 +310,17 @@ clean_all:
 #------------------------
 # Build the "main" lib
 #------
+!if "$(main_lib)" != ""
 !ifdef RECURSED_FOR_FINISHING
 !include $(mainlib_rule_inc)
+!endif
 !endif
 
 #------------------------
 # Build the "main" exe
 #------
+!if "$(main_exe)" != ""
 $(main_exe): $(obj_dir)\main.obj $(main_lib)
 	@echo Creating executable: $@...
 	link -nologo $(LINKFLAGS) -out:$@ $(ext_libs) $**
+!endif

@@ -1,5 +1,4 @@
-WARNING: '80s tech! Still in early development! ;) (Just barely passed the
-"MVP" status after intergrating it into a smallish repo (sfw) of mine.)
+WARNING: '80s tech! Still in early development! ;)
 
 It aims to have the following features, though:
 
@@ -25,6 +24,7 @@ It aims to have the following features, though:
       to trigger full rebuild (might be possible even without a thin
       runner script to capture the make command line)
 
+(Note: the "src" and "include" dirs. in the repo are just examples/tests.)
 
 DEV. NOTES:
 
