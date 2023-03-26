@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, v0.07                            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.08                            (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -12,7 +12,7 @@ PRJ_NAME=example
 main_lib=$(lib_dir)/$(PRJ_NAME)$(buildmode_suffix).lib
 main_exe=$(exe_dir)/$(PRJ_NAME)$(buildmode_suffix).exe
 
-src_dir=src.test
+src_dir=src
 out_dir=out
 lib_dir=$(out_dir)
 exe_dir=$(out_dir)
@@ -36,7 +36,7 @@ ext_libs=
 DEBUG=0
 CRT=static
 
-CFLAGS=-W4
+CFLAGS=-W4 -Iinclude
 CXXFLAGS=-std:c++latest
 # Note: C++ compilation would use $(CFLAGS), too.
 
