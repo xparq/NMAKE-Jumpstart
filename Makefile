@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, v0.08                            (Public Domain)
+#### MSVC Jumpstart Makefile, v0.09                            (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -180,8 +180,8 @@ traverse_src_tree:
 	@echo off
 	rem !!The make cmd. below fails to run without the extra shell! :-o
 	rem !!Also -> #8 why the env. var here can't be called just "make"!... ;)
-	set _make_=cmd /c $(MAKE_CMD)
-	set srcroot_fullpath=!CD!\$(src_dir)
+	set "_make_=cmd /c $(MAKE_CMD)"
+	set "srcroot_fullpath=!CD!\$(src_dir)"
 	:: echo $(src_dir)
 	:: echo !srcroot_fullpath!
 	rem Do the root level first (-> preps + top-level sources)...
@@ -191,10 +191,10 @@ traverse_src_tree:
 		if exist "$(src_dir)\*.%%x" !_make_! /c compiling SRC_EXT_=%%x || if errorlevel 1 exit -1
 	)
 	rem Scan the rest of the source tree for sources...
-	for /f %%i in ('dir /s /b /a:d !srcroot_fullpath!') do (
+	for /f %%i in ('dir /s /b /a:d "!srcroot_fullpath!"') do (
 		rem It's *vital* to use a local name here, not dir (==DIR!!!):
-		set _dir_=%%i
-		set _dir_=!_dir_:%srcroot_fullpath%=!
+		set "_dir_=%%i"
+		set "_dir_=!_dir_:%srcroot_fullpath%=!"
 	        for %%x in ($(obj_source_exts)) do (
 			if exist %%i\*.%%x !_make_! /c compiling "DIR=!_dir_!" SRC_EXT_=%%x || if errorlevel 1 exit -1
 		)
@@ -255,13 +255,13 @@ mainlib_rule_inc=$(out_dir)\mainlib_rule.inc
 mk_main_lib_rule_inc:
 	@cmd /v:on /c <<mklib.cmd
 	@echo off
-	for /r $(src_dir)\$(lib_src_subdir) %%o in ($(units_pattern).c*) do  (
-		set _o_=%%o
-		set _o_=!_o_:%CD%\$(src_dir)=!
+	for /r "$(src_dir)\$(lib_src_subdir)" %%o in ($(units_pattern).c*) do  (
+		set "_o_=%%o"
+		set "_o_=!_o_:%CD%\$(src_dir)=!"
 		for %%x in ($(obj_source_exts)) do (
-			set _o_=!_o_:.%%x=.obj!
+			set "_o_=!_o_:.%%x=.obj!"
 		)
-		set objlist=!objlist! $(obj_dir)!_o_!
+		set "objlist=!objlist! $(obj_dir)!_o_!"
 	)
 	echo $(main_lib): !objlist! > $(mainlib_rule_inc)
 <<
