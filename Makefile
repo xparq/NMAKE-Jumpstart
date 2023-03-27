@@ -1,4 +1,4 @@
-#### MSVC Jumpstart Makefile, r10                              (Public Domain)
+#### MSVC Jumpstart Makefile, r11                              (Public Domain)
 #### -> https://github.com/xparq/NMAKE-Jumpstart
 ####
 #### BEWARE! Uses recursive NMAKE invocations, so update the macro below if
@@ -41,6 +41,13 @@ CFLAGS=-W4 -Iinclude
 CXXFLAGS=-std:c++latest
 # Note: C++ compilation would use $(CFLAGS), too.
 
+# Output dir/file suffixes for build alternatives
+# NOTE: Must differ from their "no ..." counterparts to avoid code (linking)
+#       mismatches!
+buildmode_crtdll_dir_suffix=.crtdll
+buildmode_crtdll_file_suffix=-crtdll
+buildmode_debug_dir_suffix=.DEBUG
+buildmode_debug_file_suffix=-d
 
 #=============================================================================
 #                     NO EDITS NEEDED BELOW, NORMALLY...
@@ -141,19 +148,18 @@ LINKFLAGS=$(_linkflags_debugmode) $(LINKFLAGS)
 #!! suffixes etc.)... Which leaves us with dispatching the obj_dir instead
 #!! -- and leaving the lib_dir and exe_dir totally ignored... :-/
 #-----------------------------------------------------------------------------
+# For the output dirs (currently only for objs.):
 !if "$(CRT)" == "dll"
-obj_dir=$(obj_dir).dl
-# And this for the lib/exe *files* instead:
-crt_linkmode_suffix=$(crt_linkmode_suffix)-dl
+obj_dir=$(obj_dir)$(buildmode_crtdll_dir_suffix)
+# For the lib/exe *files*:
+buildmode_suffix=$(buildmode_suffix)$(buildmode_crtdll_file_suffix)
 !endif
 
 !if "$(DEBUG)" == "1"
-obj_dir=$(obj_dir).DEBUG
-# And this for the lib/exe *files* instead:
-debugmode_suffix=-d
+obj_dir=$(obj_dir)$(buildmode_debug_dir_suffix)
+# For the lib/exe *files*:
+buildmode_suffix=$(buildmode_suffix)$(buildmode_debug_file_suffix)
 !endif
-
-buildmode_suffix=$(crt_linkmode_suffix)$(debugmode_suffix)
 
 #-----------------------------------------------------------------------------
 # Adjust paths for the inference rules, according to the current subdir-recursion
@@ -251,6 +257,7 @@ objs: $(src_dir)/$(units_pattern).$(SRC_EXT_)
 		$(subst .$(SRC_EXT_),.obj,$**))
 !endif
 
+!if "$(main_lib)" != ""
 mainlib_rule_inc=$(out_dir)\mainlib_rule.inc
 mk_main_lib_rule_inc:
 	@cmd /v:on /c <<mklib.cmd
@@ -270,6 +277,9 @@ mk_main_lib_rule_inc:
 	@echo Creating lib: $$@...
 	lib -nologo -out:$$@ $$**
 <<
+!else
+mk_main_lib_rule_inc:
+!endif
 
 clean:
 # Cleans only the target tree of the current build alternative!
