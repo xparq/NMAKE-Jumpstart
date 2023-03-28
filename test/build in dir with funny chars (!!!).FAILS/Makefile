@@ -11,11 +11,10 @@ THIS_MAKEFILE=Makefile
 # Note: the cfg. options can't be set on the NMAKE command line, only here!
 #-----------------------------------------------------------------------------
 PRJ_NAME=example
-# Use the lower-case (processed) path macros here:
-#main_lib=$(lib_dir)/$(PRJ_NAME)$(buildmode_suffix).lib
-main_exe=$(exe_dir)/$(PRJ_NAME)$(buildmode_suffix).exe
-# Main targets to build:
-BUILD = $(main_lib) $(main_exe)
+#main_lib=$(LIB_DIR)/$(PRJ_NAME)$(buildmode_suffix).lib
+#main_exe=$(EXE_DIR)/$(PRJ_NAME)$(buildmode_suffix).exe
+# List of the main targets to build:
+build = $(main_lib) $(main_exe)
 
 SRC_DIR=src
 OUT_DIR=out
@@ -24,15 +23,15 @@ EXE_DIR=$(OUT_DIR)
 OBJ_DIR=$(OUT_DIR)/obj
 CXX_MOD_IFC_DIR=$(OUT_DIR)/ifc
 # Put (only) these into the lib (relative to SRC_DIR; leave it empty for "all"):
-LIB_SRC_SUBDIR=
+lib_src_subdir=
 
 # Source (translation unit) basename filter:
-UNITS_PATTERN=*
+units_pattern=*
 
 # External dependencies:
-EXT_INCLUDE_DIRS=
-EXT_LIB_DIRS=
-EXT_LIBS=
+ext_include_dirs=
+ext_lib_dirs=
+ext_libs=
 
 #-----------------------------------------------------------------------------
 # Config - Build options
@@ -42,7 +41,7 @@ DEBUG=0
 CRT=static
 # Custom build options can also be added:
 #OPT1 = opt1_default
-# Custom build options need to be passed along for recursion explicitly:
+# However, those would need to be passed along for recursion explicitly:
 #custom_build_options = OPT1=$(OPT1) ...
 
 # Comp. flags:
@@ -100,9 +99,6 @@ main_lib        = $(prefixdir)\$(patsubst \\%,%,$(main_lib:/=\))
 !if "$(main_exe)" != ""
 main_exe        = $(prefixdir)\$(patsubst \\%,%,$(main_exe:/=\))
 !endif
-# And this one is really a subdir, which will be prefixed internally with src_dir,
-# so don't mess it up with the same adjustment, just normalize the slashes:
-lib_src_subdir  = $(LIB_SRC_SUBDIR:/=\)
 
 # Now, this one, OTOH, must be the normalized *full* path of the src root:
 #   srcroot_fullpath = $(MAKEDIR)\$(src_dir)
@@ -165,18 +161,18 @@ LINKFLAGS=$(_linkflags_debugmode) $(LINKFLAGS)
 #---------------------------------------
 # External include & lib search paths
 #------
-!if "$(EXT_INCLUDE_DIRS)" != ""
-!if [set INCLUDE=%INCLUDE%;$(EXT_INCLUDE_DIRS)]
+!if "$(ext_include_dirs)" != ""
+!if [set INCLUDE=%INCLUDE%;$(ext_include_dirs)]
 !endif
 !endif
 
-!if "$(EXT_LIB_DIRS)" != ""
-!if [set LIB=%LIB%;$(EXT_LIB_DIRS)]
+!if "$(ext_lib_dirs)" != ""
+!if [set LIB=%LIB%;$(ext_lib_dirs)]
 !endif
 !endif
-# Or, alternatively:
-#!if "$(EXT_LIB_DIRS)" != ""
-#LINKFLAGS=$(LINKFLAGS) -libpath:$(EXT_LIB_DIRS)
+
+#!if "$(ext_lib_dirs)" != ""
+#LINKFLAGS=$(LINKFLAGS) -libpath:$(ext_lib_dirs)
 #!endif
 
 #-----------------------------------------------------------------------------
@@ -186,19 +182,18 @@ LINKFLAGS=$(_linkflags_debugmode) $(LINKFLAGS)
 #!! suffixes etc.)... Which leaves us with dispatching the obj_dir instead
 #!! -- and leaving the lib_dir and exe_dir totally ignored... :-/
 #-----------------------------------------------------------------------------
-# For the output dirs (currently only the obj. dir), and
-# for the output files (currently the lib/exe files)
+# For the output dirs (currently only for objs.):
 !if "$(CRT)" == "dll"
-buildmode_dir_suffix=$(buildmode_dir_suffix)$(buildmode_crtdll_dir_suffix)
-buildmode_file_suffix=$(buildmode_file_suffix)$(buildmode_crtdll_file_suffix)
+obj_dir=$(obj_dir)$(buildmode_crtdll_dir_suffix)
+# For the lib/exe *files*:
+buildmode_suffix=$(buildmode_suffix)$(buildmode_crtdll_file_suffix)
 !endif
 
 !if "$(DEBUG)" == "1"
-buildmode_dir_suffix=$(buildmode_dir_suffix)$(buildmode_debug_dir_suffix)
-buildmode_file_suffix=$(buildmode_file_suffix)$(buildmode_debug_file_suffix)
+obj_dir=$(obj_dir)$(buildmode_debug_dir_suffix)
+# For the lib/exe *files*:
+buildmode_suffix=$(buildmode_suffix)$(buildmode_debug_file_suffix)
 !endif
-
-obj_dir=$(obj_dir)$(buildmode_dir_suffix)
 
 #-----------------------------------------------------------------------------
 # Adjust paths for the inference rules, according to the current subdir-recursion
@@ -270,7 +265,7 @@ init: mk_main_target_dirs mk_main_lib_rule_inc
 
 compiling: mk_obj_dirs objs
 
-finish: $(BUILD)
+finish: $(build)
 
 mk_main_target_dirs:
 # Pre-create the output dirs, as MSVC can't be bothered:
@@ -284,7 +279,7 @@ mk_obj_dirs:
 	@if not exist "$(obj_dir)" md "$(obj_dir)"
 
 !ifdef SRC_EXT_
-objs: $(src_dir)\$(UNITS_PATTERN).$(SRC_EXT_)
+objs: $(src_dir)\$(units_pattern).$(SRC_EXT_)
 	@$(MAKE_CMD) RECURSED_FOR_COMPILING=1 DIR=$(DIR) $(custom_build_options)\
 		$(patsubst $(src_dir)\\%,$(obj_dir)\\%, $(subst .$(SRC_EXT_),.obj,$**))
 !endif
@@ -292,9 +287,9 @@ objs: $(src_dir)\$(UNITS_PATTERN).$(SRC_EXT_)
 !if "$(main_lib)" != ""
 mainlib_rule_inc=$(out_dir)\mainlib_rule.inc
 mk_main_lib_rule_inc:
-	@cmd /v:on /c <<$(out_dir)\mklibrule.cmd
+	@cmd /v:on /c <<$(out_dir)\mklib.cmd
 	@echo off
-	for /r "$(src_dir)\$(lib_src_subdir)" %%o in ($(UNITS_PATTERN).c*) do  (
+	for /r "$(src_dir)\$(lib_src_subdir)" %%o in ($(units_pattern).c*) do  (
 		set "_o_=%%o"
 		set "_o_=!_o_:$(srcroot_fullpath)\=!"
 		for %%x in ($(obj_source_exts)) do (
@@ -363,5 +358,5 @@ clean_all:
 !if "$(main_exe)" != ""
 $(main_exe): $(obj_dir)\main.obj $(main_lib)
 	@echo Creating executable: $@...
-	link -nologo $(LINKFLAGS) -out:$@ $(EXT_LIBS) $**
+	link -nologo $(LINKFLAGS) -out:$@ $(ext_libs) $**
 !endif

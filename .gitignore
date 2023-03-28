@@ -2,3 +2,11 @@
 *.tmp
 
 out/
+
+*.obj
+*.exe
+*.lib
+*.ilk
+*.idb
+*.pdb
+*.inc
