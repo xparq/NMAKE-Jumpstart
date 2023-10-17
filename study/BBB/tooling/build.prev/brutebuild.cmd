@@ -6,6 +6,8 @@ setlocal EnableDelayedExpansion
 :: TODO ::
 ::!!!!!!::
 ::
+:: -	Add a dep. for at least manual header-change tracking...
+::
 :: FIX:	No checks for some x=%OBJ_ROOT%\... prefixes, and possibly others!
 ::	- Some/all iteration loops fail with no exclude patterns (bad conditional structures!)
 :: 	E.g. a syntax error for findstr:
