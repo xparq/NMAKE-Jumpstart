@@ -42,5 +42,8 @@ into a customized Makefile, just calling `nmake` would be all there's to do.
 ::----------------------------------------------------------------------------
 :: DONE
 ::
+:: +	Extend :setd with a `:setd varname default` mode, where it sets
+::	%varname% to `default` if %varname% is `not defined` (accdng. to CMD).
+::
 :: +	Just use NMAKE's /Y to disable batch mode, that's it.
 ::

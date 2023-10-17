@@ -5,4 +5,4 @@ call %~dp0tooling/_setenv.cmd
 ::busybox sh %~dp0tooling/build/_auto-rebuild.sh %*
 
 :: The new script-driven process (without auto-rebuild yet!):
-nmake %*
+nmake /nologo %*
